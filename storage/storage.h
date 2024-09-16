@@ -2,7 +2,7 @@
 #define STORAGE_H
 
 #include "storage_file.h"
-#include "blocks/blocks.h"
+#include "../blocks/blocks.h"
 
 // change fd to some struct for storage and block management
 
