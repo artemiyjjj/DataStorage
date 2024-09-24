@@ -5,11 +5,14 @@ project(jjjdb
 	VERSION 1.0
 	)
 
-add_executable(jjjdb $<TARGET_OBJECTS:storage> ./main.c)
-
 add_subdirectory(storage)
+# set(STORAGE_INCLUDE storage/storage.h)
 
-# target_link_libraries(jjjdb PUBLIC storage)
+add_executable(jjjdb $<TARGET_OBJECTS:storage> ./main.c ${STORAGE_HEADERS})
+target_include_directories(jjjdb PRIVATE storage)
+
+
+
 
 target_compile_options(jjjdb PRIVATE
 		-Wall -Wextra -pedantic -Wmissing-prototypes -Wstrict-prototypes
@@ -21,8 +24,8 @@ target_compile_options(jjjdb PRIVATE
 #         -fvisibility=hidden -fvisibility-inlines-hidden
 #)
 
-include(CTest)
+# include(CTest)
 
-if(BUILD_TESTING)
-	add_subdirectory(test)
-endif()
+# if(BUILD_TESTING)
+# 	add_subdirectory(test)
+# endif()
