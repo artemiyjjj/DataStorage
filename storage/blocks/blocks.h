@@ -1,27 +1,19 @@
 #ifndef BLOCKS_H
 #define BLOCKS_H
 
-// Можно сделать структуру (сет), хранящую инфу о блоках (fd и адрес начала) и отдающую наружу дескриптор блока (порядковый номер блока в файле).
-// Это упростит вызовы чтения, записи и удаления блока, но придется писать обертки для
+#include "block_info.h"
+#include "storage_file.h"
 
-typedef int bl_desc;
+unsigned int calc_file_offset(const unsigned int block_size, bl_desc bl_desc, const bool start);
 
-enum bl_type {
-    BLOCK_HEAD = 0,
+int create_block(struct blocks_info* const bl_info, const bl_desc bd, const enum bl_type bt, struct block** created_bl);
 
-};
+int load_block(struct blocks_info* const bl_info, const bl_desc bd, const bool is_header, struct block** loaded_bl);
 
-struct bl_manager {
-    int fd;
-    // hashset with bd's
-    // which could store time of blocks being loaded in memory for auto remove them
-    // (for balanced mem consuption)
-};
+int sync_block(struct blocks_info* const bl_info, const bl_desc bd, bool is_header);
 
-int create_block(int fd, bl_desc bd, enum bl_type bt);
+int remove_block(struct blocks_info* const bl_info, const bl_desc bd, bool is_header);
 
-int sync_block(int fd, bl_desc db);
-
-int delete_block(int fd, bl_desc bd);
+int delete_block(struct blocks_info* const bl_info, const bl_desc bd);
 
 #endif // BLOCKS_H
