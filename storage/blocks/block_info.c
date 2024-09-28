@@ -1,38 +1,38 @@
 #include "block_info.h"
+#include "block_creat.h"
 
 #include <assert.h>
 #include <stdlib.h>
 
 // Operations with blocks_info
 
-int get_last_bl_desc(const struct blocks_info* const bl_info, bl_desc* const bl_desc) {
+bl_desc get_last_bl_desc(const struct blocks_info* const bl_info) {
     if (bl_info -> header_blocks_list != NULL) {
-        *bl_desc = bl_info -> header_blocks_list -> block -> ptr.bl_header -> state.last_bl_desc;
+        return bl_info -> header_blocks_list -> block -> ptr.bl_header -> state.last_bl_desc;
     }
-    *bl_desc = UNDEF_BL_DESC;
-    return 0;
+    return UNDEF_BL_DESC;
 }
 
-int set_last_bl_desc(const struct blocks_info* const bl_info, const bl_desc new_last_bl_desc) {
+void set_last_bl_desc(const struct blocks_info* const bl_info, const bl_desc new_last_bl_desc) {
     struct block_list* header_bl_list = bl_info -> header_blocks_list;
     while (header_bl_list != NULL) {
         header_bl_list -> block -> ptr.bl_header -> state.last_bl_desc = new_last_bl_desc;
         header_bl_list = header_bl_list -> next;
     }
-    return 0;
 }
 
-int get_root_cell(const struct blocks_info* const bl_info, bl_desc* const root_cl_desc, bl_offset* const root_cl_offset) {
+struct cl_desc get_root_cell(const struct blocks_info* const bl_info) {
     if (bl_info -> header_blocks_list == NULL) {
-        return 1;
+        return (struct cl_desc) {
+            .bl_d = UNDEF_BL_DESC,
+            .bl_off = UNDEF_BL_OFFSET
+        };
     }
-    *root_cl_desc = bl_info -> header_blocks_list -> block -> ptr.bl_header -> root_cell_desc;
-    *root_cl_offset = bl_info -> header_blocks_list -> block -> ptr.bl_header -> root_cell_offset;
-    return 0;
+    return bl_info -> header_blocks_list -> block -> ptr.bl_header -> root_cl_desc;
 }
 
-int set_root_cell(const struct blocks_info* const bl_info, const bl_desc root_cl_desc, const bl_offset root_cl_offset) {
-    return 1;
+void set_root_cell(const struct blocks_info* const bl_info, const struct cl_desc root_cl_desc) {
+    /// to do
 }
 
 
@@ -61,6 +61,7 @@ int add_block_to_list(struct blocks_info* const bl_info, const bl_desc bd,
     // Change for hashset behaviour
     struct block_list* bl_list = (*block) -> type == BLOCK_HEAD ?
                                  bl_info -> header_blocks_list : bl_info -> loaded_blocks_list;
+
     struct block_list* bl_list_prev = NULL;
     while (bl_list != NULL) {
         bl_list_prev = bl_list;
@@ -103,6 +104,16 @@ Return codes:
 1 - Haven't found block with given descriptor in list
 */
 int remove_block_from_list(struct blocks_info* const bl_info, const bl_desc bd, bool is_header) {
+    // GHashTable* table = bl_info -> is_header ? header_blocks_table : loaded_blocks_table;
+
+    // // if (!g_hash_table_contains(bd)) {
+    // //     return 1;
+    // // }
+    // if (g_hash_table_remove(table, bd)) {
+        
+    // }
+
+
     // Change for hashset behaviour
     struct block_list* bl_list = is_header ? bl_info -> header_blocks_list : bl_info -> loaded_blocks_list;
 

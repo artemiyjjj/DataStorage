@@ -2,6 +2,8 @@
 #define BLOCK_INFO_H
 
 #include "block_types.h"
+#include "cells/cell_types.h"
+#include <glib.h>
 
 // Можно сделать структуру (сет), хранящую инфу о блоках (fd и адрес начала) и отдающую наружу дескриптор блока (порядковый номер блока в файле).
 // Это упростит вызовы чтения, записи и удаления блока, но придется писать обертки для
@@ -18,19 +20,25 @@ struct blocks_info {
     // hashset with bd's
     // which could store time of blocks being loaded in memory for auto remove them
     // (for balanced mem consuption)
+
     struct block_list* header_blocks_list;
+    // struct GHashTable* header_blocks_table;
     //Change to hash set or smth to be able to get block at O(1)
     // Might also find closest block to save child near parent 
+
     struct block_list* loaded_blocks_list;
+    // struct GHashTable* loaded_blocks_table;
+
     // lists of static Data blocks by storing type and list of dyn data blocks
     // struct priority_queue* queue_fix_cell_size // - длинна клетки у блоков для разных типов
-    // будет разной, поэтому придется делать и очередь под каждый тип
+    // будет разной, поэтому придется делать и очередь под блоки каждого типа данных 
+
     //struct priority_queue* queue_var_cell_size // - очередь отсортирована по возрастанию,
     // нужно как то за константу искать подходящую длинну
-    int (*get_last_bl_desc)(const struct blocks_info* const, bl_desc* const);
-    int (*set_last_bl_desc)(const struct blocks_info* const, const bl_desc);
-    int (*get_root_cell)(const struct blocks_info* const, bl_desc* const, bl_offset* const);
-    int (*set_root_cell)(const struct blocks_info* const, const bl_desc, const bl_offset);
+    bl_desc (*get_last_bl_desc)(const struct blocks_info* const);
+    void (*set_last_bl_desc)(const struct blocks_info* const, const bl_desc);
+    struct cl_desc (*get_root_cell)(const struct blocks_info* const);
+    void (*set_root_cell)(const struct blocks_info* const, const struct cl_desc);
 };
 
 // Operations with block list
@@ -45,12 +53,12 @@ int remove_block_from_list(struct blocks_info* const bl_info, const bl_desc bd, 
 
 // Operations with blocks_info
 
-int get_last_bl_desc(const struct blocks_info* const bl_info, bl_desc* const bl_desc);
+bl_desc get_last_bl_desc(const struct blocks_info* const bl_info);
 
-int set_last_bl_desc(const struct blocks_info* const bl_info, const bl_desc new_last_bl_desc);
+void set_last_bl_desc(const struct blocks_info* const bl_info, const bl_desc new_last_bl_desc);
 
-int get_root_cell(const struct blocks_info* const bl_info, bl_desc* const root_cl_desc, bl_offset* const root_cl_offset);
+struct cl_desc get_root_cell(const struct blocks_info* const bl_info);
 
-int set_root_cell(const struct blocks_info* const bl_info, const bl_desc root_cl_desc, const bl_offset root_cl_offset);
+void set_root_cell(const struct blocks_info* const bl_info, const struct cl_desc root_cl_desc);
 
 #endif

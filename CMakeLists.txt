@@ -5,14 +5,13 @@ project(jjjdb
 	VERSION 1.0
 	)
 
-add_subdirectory(storage)
-# set(STORAGE_INCLUDE storage/storage.h)
+
 
 add_executable(jjjdb $<TARGET_OBJECTS:storage> ./main.c ${STORAGE_HEADERS})
+
+add_subdirectory(storage)
+
 target_include_directories(jjjdb PRIVATE storage)
-
-
-
 
 target_compile_options(jjjdb PRIVATE
 		-Wall -Wextra -pedantic -Wmissing-prototypes -Wstrict-prototypes
