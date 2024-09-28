@@ -117,18 +117,22 @@ int delete_block(struct blocks_info* const bl_info, bl_desc bd) {
 Return codes:
 1 - Failed to truncate file
 2 - Failed to load region
-3 - Failed to sync block
-4 - Failed to allocate memory for block list
-5 - Unknown block type for block creation
+3 - Failed to create block struct
+4 - Failed to allocate memory for block list ------ change for hashset!!!
+5 - Failed to sync block
 */
-int create_block(struct blocks_info* const bl_info, bl_desc bd, enum bl_type bt, struct block** created_bl) {
+int create_block(struct blocks_info* const bl_info, enum bl_type bt, struct block** created_bl) {
+    // Update to support creating blocks from the middle of the storage
     void* loaded_block_addr = NULL;
-    long int new_last_bl_desc;
-    
-    bl_info -> get_last_bl_desc(bl_info, &new_last_bl_desc);
-    ++new_last_bl_desc;
-    unsigned int file_offset_start = calc_file_offset(bl_info -> block_size, new_last_bl_desc, true);
-    unsigned int file_offset_end = calc_file_offset(bl_info -> block_size, new_last_bl_desc, false);
+
+    // Should refer to a struct with list of free blocks which have priority to use.
+    // if struct have elements in list - use them; else get last_desc + 1
+    // if (free_blocks_list != NULL) { ... }
+    bl_desc desc = (bl_info -> get_last_bl_desc(bl_info)) + 1;
+
+
+    unsigned int file_offset_start = calc_file_offset(bl_info -> block_size, desc, true);
+    unsigned int file_offset_end = calc_file_offset(bl_info -> block_size, desc, false);
 
     if (trunc_file(bl_info -> storage_fd, file_offset_end) != 0) {
         return 1;
@@ -137,47 +141,17 @@ int create_block(struct blocks_info* const bl_info, bl_desc bd, enum bl_type bt,
     if (load_file_region(bl_info -> storage_fd, file_offset_start, &loaded_block_addr) != 0) {
         return 2;
     }
-    switch (bt) {
-        case BLOCK_HEAD: {
-            struct block_header* new_bl_h = loaded_block_addr;
-            bl_desc cl_desc;
-            bl_offset cl_offset;
-            if (bl_info -> get_root_cell(bl_info, &cl_desc, &cl_offset) != 0) {
-                cl_desc = UNDEF_BL_DESC;
-                cl_offset = UNDEF_BL_OFFSET;
-            }
-            *new_bl_h = (struct block_header) {
-                .type = bt,
-                .root_cell_desc = cl_desc,
-                .root_cell_offset = cl_offset,
-                .next_header_block_desc = UNDEF_BL_DESC,
-                //.state = { .last_bl_desc = new_last_bl_desc }, will be rewritten 
-            };
-            // update next_header_block in current header block - only place where its needed
-            break;
-        };
-        case BLOCK_DATA_FIX: {
-
-            break;
-        };
-        case BLOCK_DATA_DYN: {
-
-            break;
-        }
-        // ...
-        default: {
-            return 5;
-        }
+    if (create_block_struct(bl_info, bt, &loaded_block_addr) != 0) {
+        return 3;
     }
-    // Update info about last block
-    bl_info -> set_last_bl_desc(bl_info, new_last_bl_desc);
-
-    if (add_block_to_list(bl_info, bd, loaded_block_addr, created_bl) != 0) {
+    if (add_block_to_list(bl_info, desc, loaded_block_addr, created_bl) != 0) {
         return 4;
     }
+    // Update info about last block
+    bl_info -> set_last_bl_desc(bl_info, desc);
     fprintf_block_info(stdout, *created_bl);
     if (sync_block_struct(*created_bl) != 0) {
-        return 3;
+        return 5;
     }
     return 0;
 }

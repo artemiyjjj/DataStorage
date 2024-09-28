@@ -2,6 +2,7 @@
 #define BLOCK_CLI_H
 
 #include "blocks/block_types.h"
+#include "blocks/block_creat.h"
 
 #include <stdio.h>
 

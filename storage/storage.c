@@ -34,7 +34,7 @@ static int create_open_storage(const char* const filename,
         return 1;
     }
     // Create header block for storage meta info
-    if (create_block(bl_info, 0, BLOCK_HEAD, &block) != 0) {
+    if (create_block(bl_info, BLOCK_HEAD, &block) != 0) {
         close(bl_info -> storage_fd);
         return 3;
     }
