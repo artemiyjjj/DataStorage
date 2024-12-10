@@ -12,12 +12,29 @@ file (GLOB_RECURSE STORAGE_HEADERS CMAKE_CONFIGURE_DEPENDS
         cli
 )
 
+
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0)
+PKG_CHECK_MODULES(GLIB REQUIRED glib-2.0)
+include_directories(${GLIB_INCLUDE_DIRS})
+link_directories (${GLIB_LIBRARY_DIRS})
+add_definitions (${GLIB_CFLAGS_OTHER})
+# pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0)
+# pkg_check_modules(deps REQUIRED IMPORTED_TARGET gtk+-2.0)
+# include_directories(${GTK2_INCLUDE_DIRS})
+
+# LINK_DIRECTORIES(${GLIB_LIBRARY_DIRS})
+
+
 
 # Check docs when build for Windows
 add_library(storage STATIC ${STORAGE_SRC} ${STORAGE_HEADERS} ${GLIB_INCLUDE_DIRS})
 
-target_include_directories(storage PRIVATE .)
-target_include_directories(jjjdb PRIVATE ${GLIB_INCLUDE_DIRS})
-target_link_libraries(storage PkgConfig::deps)
+target_compile_options(storage PRIVATE
+		-Wall -Wextra -pedantic -Wmissing-prototypes -Wstrict-prototypes
+        -Wno-unused-function -Wno-unused-but-set-variable
+	# -fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak -fsanitize=undefined -fsanitize-address-use-after-scope -fsanitize=address
+)
+
+target_include_directories(storage PUBLIC . ${GLIB_INCLUDE_DIRS})
+target_link_libraries(storage  ${GLIB_LIBRARIES})
+

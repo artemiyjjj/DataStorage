@@ -1,14 +1,11 @@
 #ifndef STORAGE_FILE_H
 #define STORAGE_FILE_H
 
-#include <sys/mman.h>
-#include <string.h>
-#include <stdbool.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <stdio.h>
-
-#define MMAP_SIZE 4096
+#include <stdbool.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 int open_file(const char* filename, const bool create, int* fd);
 
@@ -20,10 +17,10 @@ new_storage_size - size to truncate file to.
 */
 int trunc_file(const int fd, const off_t new_storage_size);
 
-int load_file_region(const int fd, const off_t file_offset, void** mmap_addr);
+int load_file_region(const int fd, const off_t file_offset, size_t mmap_size, void** mmap_addr);
 
-int store_file_region(void** mmap_addr);
+int store_file_region(void** mmap_addr, size_t mmap_size);
 
-int remove_file_region(void** mmap_addr);
+int remove_file_region(void** mmap_addr, size_t mmap_size);
 
 #endif // STORAGE_FILE_H

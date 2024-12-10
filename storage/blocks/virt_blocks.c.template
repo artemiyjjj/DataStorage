@@ -1,0 +1,65 @@
+#include "blocks.h"
+#include "blocks/block_info.h"
+#include "blocks/block_types.h"
+#include "cells/cells_pub.h"
+#include "cells/cell_types_pub.h"
+
+/* Virtual block description layer provides interfaces for accessing 
+ * any data block by its "virtual" descriptor which remains the same
+ * even then the block's place in storage has chaned. This is useful
+ * for vacuum operations.
+
+ * This idea heavily relies on the organization of collecting block's
+ * metadata. In this implementation continious amount of blocks are 
+ * controled by block header which is always the beggining that kind
+ * of group. New blocks are added and encountered by one block header
+ * until it has free cells inside for storing meta-information about
+ * its blocks. When this space ends up, new block header is created
+ * to monitor 
+ * 
+ */
+
+
+/**
+ * @brief Occupy virtual block descriptor 
+ * On success `occupied_vbd` is set to the value of the occupied descriptor
+ * @param bl_info - structure with common information about storage and loaded blocks
+ * @param occupied_vbd - value of occupied virtual block descriptor
+ * @return int 0 - success
+ * @return int 1 - failed to occupy virtual block descriptor
+ * @return int 2 - failed to create new header block
+ */
+int vblocks_occupy_v_bl_desc(struct blocks_info* const bl_info, const bl_desc new_rbd, v_bl_desc* const occupied_vbd) {
+    // change to iterator
+    struct block_list* bl_header_list = bl_info -> header_blocks_table;
+    struct block* cur_bl;
+    struct block_header* cur_bl_header;
+    struct cell* new_cl;
+
+    while (bl_header_list != NULL) {
+        // cur_bl = bl_header_list -> block;
+        cur_bl_header = cur_bl -> ptr.bl_header;
+        if (cur_bl_header -> state.free_cells > 0) {
+            // occupy cell
+            // new_cl = cells_create_cell(CELL_BLOCK, 0, NULL);
+            // new_cl -> ptr.cl_block -> ;
+            // cells_insert_cell(cur_bl, cur_bl_header -> state.new_cell_start, occupied_vbd);
+        }
+        // bl_header_list = bl_header_list -> next;
+    }
+    // No free cells for vbd
+    if (blocks_create_block(bl_info, BLOCK_HEAD, CELL_BLOCK, &cur_bl) != 0) {
+        return 2;
+    }
+    // occupy cell
+
+    return 1;
+}
+
+int vblocks_change_real_bl_desc(struct blocks_info* const bl_info, const v_bl_desc vbd, const bl_desc new_rbd) {
+    return 1;
+} 
+
+int vblock_free_v_bl_desc(const v_bl_desc vbd) {
+    return 1;
+}

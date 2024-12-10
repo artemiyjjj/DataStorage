@@ -1,2 +1,7 @@
+.cache
+.trunk
+.vscode
+
 build
 
+strg_sample
