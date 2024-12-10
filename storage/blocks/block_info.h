@@ -35,6 +35,7 @@ struct blocks_info {
     GHashTable* loaded_blocks_table;
     // GHashTable* loaded_meta_blocks_table;
 
+    size_t insert_candidates_queue_length;
     /// <enum cl_type*, PriorityQueue<bl_desc>*>
     GHashTable* cell_insertion_candidates_table;
     // - очередь отсортирована по возрастанию, чтобы использовать пространство максимально эффективно
@@ -90,5 +91,8 @@ void storage_append_free_bl_desc(struct blocks_info* const, const bl_desc free_b
 bl_desc storage_append_desc_of_loaded_bl(struct blocks_info* const, const struct block* const new_bl);
 
 bl_desc storage_remove_desc_of_loaded_bl(struct blocks_info* const, const struct block* const new_bl);
+
+
+size_t storage_get_insert_cand_size(const struct blocks_info* const);
 
 #endif

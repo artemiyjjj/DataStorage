@@ -9,7 +9,9 @@
 #include "cells/cell_types.h"
 #include "cells/cell_types_pub.h"
 #include "utils/cli/block_cli.h"
+#include "utils/mem.h"
 
+#include <assert.h>
 #include <glib.h>
 #include <stdlib.h>
 
@@ -31,6 +33,7 @@ struct blocks_info* storage_new_blocks_info(void) {
     bl_info -> header_blocks_table = g_hash_table_new(g_int64_hash, g_int64_equal);
     bl_info -> loaded_blocks_table = g_hash_table_new(g_int64_hash, g_int64_equal);
     // bl_info -> loaded_meta_blocks_table = g_hash_table_new(g_int64_hash, g_int64_equal);
+    bl_info -> insert_candidates_queue_length = INSERT_CAND_QUEUE_LEN;
     bl_info -> cell_insertion_candidates_table = g_hash_table_new(g_int_hash, g_int_equal);
 
     while (cell_type_iter -> move_next(cell_type_iter)) {
@@ -394,4 +397,34 @@ int storage_update_block_meta_info_by_cell_operation(struct blocks_info* const b
     }
     // Todo: add update in block_meta's corresponding cell
     return 0;
+}
+
+void storage_try_append_insertion_candidates(struct blocks_info* const bl_info, const struct block* const insertion_candidate_bl) {
+    bl_desc candidate_bl_desc = blocks_get_real_bl_desc(insertion_candidate_bl);
+    enum cl_type bl_data_type = blocks_get_block_data_type(insertion_candidate_bl);
+    size_t queue_max_size = storage_get_insert_cand_size(bl_info);
+    GQueue* candidates_queue = NULL;
+    GList* found_candidate = NULL;
+    bl_desc* bl_desc_copy = NULL;
+
+    candidates_queue = g_hash_table_lookup(bl_info -> cell_insertion_candidates_table, &bl_data_type);
+    assert(candidates_queue != NULL);
+    if (g_queue_get_length(candidates_queue) >= queue_max_size) {
+        // try to displace candidates with less "priority" (abigger mount of free cell space)
+        return;
+    }
+    found_candidate = g_queue_find(candidates_queue, &candidate_bl_desc);
+    if (found_candidate == NULL) {
+        bl_desc_copy = myAllocStruct(bl_desc);
+        if (bl_desc_copy == NULL) {
+            return;
+        }
+        *bl_desc_copy = candidate_bl_desc; 
+        // Todo: redefine push and displace order, store free space amount
+        g_queue_push_head(candidates_queue, bl_desc_copy);
+    } else {
+        // already in queue
+        return;
+    }
+
 }

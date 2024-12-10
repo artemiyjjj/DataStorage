@@ -360,3 +360,7 @@ bl_desc storage_remove_desc_of_loaded_bl(struct blocks_info* const bl_info, cons
     is_bl_removed = g_hash_table_remove(bl_hash_table, (void*) &(removing_bl -> real_desc));
     return is_bl_removed ? removing_bl -> real_desc : UNDEF_BL_DESC;
 }
+
+size_t storage_get_insert_cand_size(const struct blocks_info* const bl_info) {
+    return bl_info -> insert_candidates_queue_length;
+}

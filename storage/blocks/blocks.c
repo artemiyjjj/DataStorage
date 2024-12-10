@@ -1,6 +1,7 @@
 #include "blocks.h"
 
 #include "block_info.h"
+#include "blocks/block_info_pub.h"
 #include "blocks_pub.h"
 #include "block_types.h"
 #include "blocks/block_types_pub.h"
@@ -340,5 +341,6 @@ int blocks_create_block(struct blocks_info* const bl_info, const enum bl_type bt
     if (blocks_sync_block(bl_info, *created_bl) != 0) {
         return 4;
     }
+    storage_try_append_insertion_candidates(bl_info, *created_bl);
     return 0;
 }

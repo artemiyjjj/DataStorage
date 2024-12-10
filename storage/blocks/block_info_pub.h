@@ -9,6 +9,8 @@
 
 #define BLOCK_MMAP_SIZE 4096 // remove, change to posix_stat() in `storage_new_blocks_info` ...
 
+#define INSERT_CAND_QUEUE_LEN 20
+
 enum cell_operation {
     CL_INSERT = 1,
     CL_UPDATE,
@@ -32,5 +34,7 @@ int storage_load_block(struct blocks_info* const, const bl_desc, struct block** 
 int storage_pin_block(struct blocks_info* const, const struct cl_desc, const enum cl_pin_mode pin_mode);
 
 int storage_unpin_block(struct blocks_info* const, const struct cl_desc, const enum cl_pin_mode pin_mode);
+
+void storage_try_append_insertion_candidates(struct blocks_info* const, const struct block* const insertion_candidate_bl);
 
 #endif
