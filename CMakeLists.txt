@@ -16,10 +16,10 @@ target_include_directories(jjjdb PUBLIC ${GLIB_INCLUDE_DIRS} PkgConfig::deps)
 target_compile_options(jjjdb PRIVATE
 		-Wall -Wextra -pedantic -Wmissing-prototypes -Wstrict-prototypes
         -Wno-unused-function -Wno-unused-but-set-variable
-	# -fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak -fsanitize=undefined -fsanitize-address-use-after-scope -fsanitize=address
+	-fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak -fsanitize=undefined -fsanitize-address-use-after-scope -fsanitize=address
 )
 
-target_link_libraries(jjjdb  ${GLIB_LIBRARIES})
+target_link_libraries(jjjdb asan ubsan ${MATH_LIB} ${GLIB_LIBRARIES} )
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
