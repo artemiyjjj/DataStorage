@@ -1,14 +1,18 @@
 #include "cells_iterators.h"
+
 #include "blocks/block_info.h"
 #include "blocks/block_info_pub.h"
 #include "blocks/block_types_pub.h"
+#include "cells/cells.h"
+#include "cells_pub.h"
 #include "cells/cell_types.h"
 #include "cells/cell_types_pub.h"
+#include "glib.h"
 #include "utils/iterators/iterators.h"
 #include "utils/mem.h"
 
+#include <assert.h>
 #include <stdbool.h>
-
 
 
 iterator* new_root_cell_iterator(struct blocks_info* const bl_info, struct cell* const root_cell) {
@@ -20,10 +24,9 @@ iterator* new_root_cell_iterator(struct blocks_info* const bl_info, struct cell*
     root_cell_iter -> root_cell = root_cell;
     root_cell_iter -> base.current = NULL;
     root_cell_iter -> base.move_next = root_cell_move_next;
-    root_cell_iter -> base.dstr_item = iterator_empty_destroy;
+    root_cell_iter -> base.dstr_item = NULL;
     return (iterator*) root_cell_iter;
 }
-
 
 /**
  * @brief Create data block and set iterator to 
@@ -53,87 +56,185 @@ bool root_cell_move_next(iterator* self) { // this can be generic for all `move_
     return true;
 }
 
+/// These iterators should return struct cell 
 
-
-iterator* new_array_iterator(void* arr_start, const size_t arr_len, const size_t arr_elem_size, fp_destroy_item arr_dstr) {
-    array_iterator* arr_it = myAllocStruct(array_iterator);
-    if (!arr_it) {
-        return NULL;
-    }
-    arr_it -> arr_start = arr_start;
-    arr_it -> arr_lenght = arr_len;
-    arr_it -> arr_elem_size = arr_elem_size;
-    arr_it -> next_index = 0;
-    arr_it -> base.current = NULL;
-    arr_it -> base.move_next = array_iter_move_next;
-    arr_it -> base.dstr_item = arr_dstr;
-    return (iterator*) arr_it;
+static bool test_attr_name(void* name_attr, void* expected_name) {
+    return strcmp(name_attr, expected_name) == 0 ? true : false;
 }
 
-iterator* new_cell_type_array_iter(void) {
-    size_t cell_types_amount = CELL_TYPES_AMOUNT;
-    array_iterator* new_cell_type_iter = myAllocStruct(array_iterator);
-    if (new_cell_type_iter == NULL) {
-        return NULL;
-    }
-    enum cl_type* arr = malloc(sizeof(enum cl_type) * cell_types_amount); 
-    if (arr == NULL) {
-        return NULL;
-    }
-    arr[0] = CELL_INT32;
-    arr[1] = CELL_FLOAT32;
-    arr[2] = CELL_BOOL;
-    arr[3] = CELL_STRING;
-    arr[4] = CELL_BLOCK;
-    arr[5] = CELL_META;
-    arr[6] = CELL_OBJECT;
-    arr[7] = CELL_ATTR;
-    new_cell_type_iter -> next_index = 0;
-    new_cell_type_iter -> arr_start = arr;
-    new_cell_type_iter -> arr_lenght = cell_types_amount;
-    new_cell_type_iter -> arr_elem_size = sizeof(enum cl_type);
-    new_cell_type_iter -> base.current = NULL;
-    new_cell_type_iter -> base.move_next = array_iter_move_next;
-    new_cell_type_iter -> base.dstr_item = iterator_empty_destroy;
-    return (iterator*) new_cell_type_iter;
+/**
+ * @brief Create an iterator over a single cell. Cell should be accessed via
+ * `select_cell` to get a copy of desired cell.
+ * 
+ * @param node 
+ * @return iterator* 
+ */
+iterator* new_single_item_iterator(struct cell* const item) {
+    void** items = myAllocStruct(void*);
+    items[0] = item;
+    return new_array_iterator(items, 1, free);
 }
 
-bool array_iter_move_next(iterator *it) {
-    array_iterator* self = (array_iterator*) it;
-    if (self -> next_index < self -> arr_lenght) {
-        self -> base.current = (char*) self -> arr_start + self -> arr_elem_size * self -> next_index;
-        self -> next_index++;
-        return true;
-    } else {
-        self -> base.dstr_item(self -> arr_start);
+static void cell_cpy_dstr(void* cell) {
+    cells_free_cpy_cell(cell);
+}
+
+/**
+ * @brief Create an iterator over a cell's only immediate (next level)
+ * children.
+ *
+ * @param bl_info 
+ * @param node 
+ * @return iterator* 
+ */
+iterator* new_node_imm_children_iterator(struct blocks_info* const bl_info, struct cell* node) {
+    children_iterator* self = myAllocStruct(children_iterator);
+    if (!self) {
+        return NULL;
+    }
+
+    self -> base.current = NULL;
+    self -> base.move_next = imm_children_iter_move_next;
+    self -> base.dstr_item = cell_cpy_dstr; 
+    self -> next_cell_desc = node -> ptr.cl_object -> children;
+    self -> bl_info = bl_info;
+    return (iterator*) self;
+}
+
+bool imm_children_iter_move_next(iterator* it) {
+    children_iterator* self = (children_iterator*) it;
+    struct cl_desc next_cld = self -> next_cell_desc;
+    struct cell* cur_cell = self -> base.current;
+    
+    if (cur_cell != NULL) {
+        self -> base.dstr_item(cur_cell);
+    }
+    if (cells_cmp_cl_desc(next_cld, cells_get_default_cld()) == 0) {
         free(it);
         return false;
     }
+    cur_cell = select_cell(self -> bl_info, next_cld);
+    assert(cur_cell); // descriptor can not be invalid
+    self -> next_cell_desc = cur_cell -> ptr.cl_object -> next_sibling;
+    self -> base.current = cur_cell;
+    return true;
+}
+
+/**
+ * @brief Create an iterator over all cell's ancestors.
+ *
+ * @param node 
+ * @return iterator* 
+ */
+iterator* new_node_all_children_iterator(struct blocks_info* const bl_info, struct cell* node) {
+    all_children_iterator* self = myAllocStruct(all_children_iterator);
+    if (!self) {
+        return NULL;
+    }
+
+    iterator* root_children_iter = new_node_imm_children_iterator(bl_info, node);
+
+    self -> base.current = NULL;
+    self -> base.move_next = all_children_iter_move_next;
+    self -> base.dstr_item = cell_cpy_dstr;
+    self -> bl_info = bl_info;
+    self -> iterator_stack = g_queue_new();
+    g_queue_push_head(self -> iterator_stack, root_children_iter);
+    return (iterator*) self;
+}
+
+bool all_children_iter_move_next(iterator* it) {
+    all_children_iterator* self = (all_children_iterator*) it;
+
+    while (g_queue_get_length(self -> iterator_stack) > 0) {
+        iterator* current_iterator = g_queue_peek_tail(self -> iterator_stack);
+        while (current_iterator -> move_next(current_iterator)) {
+            self -> base.current = current_iterator -> current;
+            iterator* cur_node_imm_children_iter = new_node_imm_children_iterator(self -> bl_info, self -> base.current);
+            g_queue_push_head(self -> iterator_stack, cur_node_imm_children_iter);
+            return true;
+        }
+        self -> iterator_stack = g_queue_pop_tail(self -> iterator_stack);
+    }
+    g_queue_free(self -> iterator_stack);
+    free(it);
+    return false;
 }
 
 
+iterator* new_node_attr_iterator(struct blocks_info* const bl_info, struct cell* node) {
+    children_iterator* self = myAllocStruct(children_iterator);
+    if (!self) {
+        return NULL;
+    }
 
-/**
- * @brief Depth-first search of cells fitting 
- * provided conditions
- * 
- * @return int 0 - Success
- */
-// int find_cells_dfs(struct blocks_info* bl_info, ..., const struct cell_obj* const search_start ) { // mb move to storage - select()?
-//     struct cellIterator cellIterator = NULL;
-//     search_start -> children
+    self -> base.current = NULL;
+    self -> base.move_next = attr_iter_move_next;
+    self -> base.dstr_item = cell_cpy_dstr;
+    self -> next_cell_desc = node -> ptr.cl_object -> attrs;
+    self -> bl_info = bl_info;   
+    return (iterator*) self;
+}
+
+bool attr_iter_move_next(iterator* it) {
+    children_iterator* self = (children_iterator*) it;
+    struct cl_desc next_cld = self -> next_cell_desc;
+    struct cell* cur_cell = self -> base.current;
+
+    if (cur_cell != NULL) {
+        self -> base.dstr_item(cur_cell);
+    }
+    if (next_cld.bl_d == UNDEF_BL_DESC && next_cld.cl_d == UNDEF_CL_DESC) {
+        free(it);
+        return false;
+    }
+    cur_cell = select_cell(self -> bl_info, next_cld);
+    self -> next_cell_desc = cur_cell -> ptr.cl_attribute -> next_attr;
+    self -> base.current = cur_cell;
+    return true;
+}
 
 
-//     return -1;
-// }
+iterator* new_attr_name_filter_iterator(iterator* base, struct blocks_info* const bl_info, char* expected_name) {
+    attr_filter_name_iterator* iter = myAllocStruct(attr_filter_name_iterator);
+    if (iter == NULL) {
+        return NULL;
+    }
+    iter -> bl_info = bl_info;
+    iter -> base.from = base;
+    iter -> base.param = expected_name;
+    iter -> base.test_condition = test_attr_name;
+    iter -> base.self.current = NULL;
+    iter -> base.self.move_next = attr_name_iter_move_next;
+    iter -> base.self.dstr_item = cell_cpy_dstr;
+    return (iterator*) iter;
+}
 
+bool attr_name_iter_move_next(iterator* it) {
+    struct cell* cur_cell;
+    struct cell* name_cell;
+    attr_filter_name_iterator* name_iter = (attr_filter_name_iterator*) it;
+    children_iterator* from_iter = (children_iterator*) name_iter -> base.from;
 
-/// Usage
-// if (find_cell(..., cellIterator) != 0) {
-//         return 3;
-//     } 
-//     while (cellIterator.hasNext()) {
-//         cellIterator
-//     }
-
-// int find_cells_meta(...){}
+    if (from_iter -> base.current != NULL) {
+        name_iter -> base.self.dstr_item(from_iter -> base.current);
+    }
+    while (from_iter -> base.move_next((iterator*) from_iter)) {
+        cur_cell = from_iter -> base.current;
+        name_cell = select_cell(name_iter -> bl_info, cur_cell -> ptr.cl_attribute -> key);
+        assert(name_cell != NULL);
+        // if (name_cell == NULL) {
+        //     cells_free_cpy_cell(name_cell);
+        //     continue;
+        // }
+        /// Check if name matches expected name
+        if (name_iter -> base.test_condition(name_cell -> ptr.cl_string -> value, name_iter -> base.param)) {
+            cells_free_cpy_cell(name_cell);
+            name_iter -> base.self.current = cur_cell;
+            return true;
+        }
+    }
+    free(from_iter);
+    free(name_iter);
+    return false;
+}

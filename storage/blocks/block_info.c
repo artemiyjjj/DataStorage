@@ -77,7 +77,7 @@ int storage_set_meta_info_of_block(struct blocks_info* const bl_info, const stru
     // no need to update block header's state, since it's already updated
     if (modifying_bl -> type == BLOCK_HEAD) {
         free(modifying_block_cell);
-        cells_free_cpy_cell(&cl_meta_info);
+        cells_free_cpy_cell(cl_meta_info);
         return 0;
     }
     // Update or insert `block_header`'s state and make this block dirty
@@ -98,7 +98,7 @@ int storage_set_meta_info_of_block(struct blocks_info* const bl_info, const stru
     // if (cells_release_cell_ptr(bl_info, CL_PIN_WRITE, modifying_block_cell) != 0) {
     //     return 3;
     // }
-    cells_free_cpy_cell(&cl_meta_info);
+    cells_free_cpy_cell(cl_meta_info);
     return 0;
 }
 
@@ -175,16 +175,35 @@ size_t storage_get_header_group_size(const size_t bl_size) {
  * @return false 
  */
 bool storage_try_fit_cell_to_block(struct blocks_info* const bl_info, const bl_desc bld, const struct cell* const new_cl) {
+    bool ret_val;
     struct cell* cl_block_wrap = NULL;
     struct cell_block* cl_block;
-    size_t cell_size = cells_get_cell_size(new_cl);
-    bool ret_val;
+    bl_free_space cell_size;
 
     if (storage_get_meta_info_of_block(bl_info, bld, &cl_block_wrap) != 0) {
         // failure
         return false;
     }
     cl_block = cl_block_wrap -> ptr.cl_block;
+    switch (cl_block -> stor_cl_type) {
+        case CELL_INT32:
+        case CELL_FLOAT32:
+        case CELL_BOOL:
+        case CELL_BLOCK:
+        case CELL_META:
+        case CELL_OBJECT:
+        case CELL_ATTR: {
+            cell_size = 1;
+        } break;
+        case CELL_STRING: {
+            cell_size = cells_get_cell_size(new_cl);
+        } break;
+        default: {
+            cells_free_cpy_cell(cl_block_wrap);
+            return false;
+        }
+    }
+
     // Check if provided  cell can be inserted
     if (cl_block -> stor_cl_type == new_cl -> type && cl_block -> free_bl_size >= cell_size) {
         ret_val = true;
@@ -261,7 +280,7 @@ struct cl_desc storage_get_root_cell(const struct blocks_info* const bl_info) {
             return cells_get_default_cld();
         }
     }
-    while (value_block != NULL);
+    while (value_block == NULL);
     return value_block -> ptr.bl_header -> root_cl_desc;
 }
 

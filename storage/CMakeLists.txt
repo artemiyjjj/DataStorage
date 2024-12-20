@@ -24,7 +24,7 @@ add_definitions (${GLIB_CFLAGS_OTHER})
 
 # LINK_DIRECTORIES(${GLIB_LIBRARY_DIRS})
 
-
+find_library(MATH_LIB m)
 
 # Check docs when build for Windows
 add_library(storage STATIC ${STORAGE_SRC} ${STORAGE_HEADERS} ${GLIB_INCLUDE_DIRS})
@@ -36,5 +36,4 @@ target_compile_options(storage PRIVATE
 )
 
 target_include_directories(storage PUBLIC . ${GLIB_INCLUDE_DIRS})
-target_link_libraries(storage  ${GLIB_LIBRARIES})
-
+target_link_libraries(storage ${MATH_LIB} -lm ${GLIB_LIBRARIES})

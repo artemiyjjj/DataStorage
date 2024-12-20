@@ -56,8 +56,9 @@ typedef struct cell_string {
  */
 typedef struct cell_attr {
     enum cl_type type;
-    struct cl_desc key;
-    struct cl_desc value;
+    cl_desc key;
+    cl_desc value;
+    cl_desc next_attr;
 }__attribute__((packed)) cell_attr;
 
 /**
@@ -70,15 +71,15 @@ typedef struct cell_attr {
  * Fields `attrs` and `children` are of type struct `cl_contents_collection`,
  * `value` is of any Simple type.
  */
-typedef struct cell_obj {
+typedef struct cell_object {
     enum cl_type type;
     struct cl_desc attrs;
     struct cl_desc children;
     struct cl_desc next_sibling;
-    struct cl_desc prev_sibling;
-    struct cl_desc ancestor;
+    struct cl_desc parent;
     struct cl_desc value;
-}__attribute__((packed)) cell_obj;
+    struct cl_desc name;
+}__attribute__((packed)) cell_object;
 
 /**
  * @brief Collection of descriptors for attributes or anchestors of an object 
@@ -103,7 +104,6 @@ typedef struct cell_obj {
  * reading each block to get with information.
  */
 typedef struct cell_block {
-    // enum cl_type type; // `cell_block` does not need `type` field, since it is stored only in `block_header`
     v_bl_desc     vbd;
     bl_desc       rbd;
     bl_free_space free_bl_size;
@@ -117,7 +117,6 @@ typedef struct cell_block {
  * This cell does not need `type` field, since it's used only in `block_meta`
  */
 typedef struct cell_meta {
-    // enum cl_type type; // 
     v_cl_desc virt_cl_desc;
     bl_offset bl_off;
     // cell's data hash

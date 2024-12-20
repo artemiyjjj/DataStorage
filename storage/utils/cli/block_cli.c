@@ -49,6 +49,7 @@ static void log_block_type_data_dyn(FILE* log_stream, struct block_data_dyn* bl_
 }
 
 int log_block_info(FILE* log_stream, struct block* block, bool show_cell_layout) {
+    return 0;
     fprintf(log_stream, "\ndesc: %ld", block -> v_desc);
     switch (block -> type) {
         case BLOCK_HEAD: {

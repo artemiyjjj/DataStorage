@@ -10,7 +10,7 @@
 
 int cells_get_cpy_cell(struct blocks_info* const, const struct cl_desc searched_cld, struct cell** const found_cell);
 
-void cells_free_cpy_cell(struct cell** cell);
+void cells_free_cpy_cell(struct cell* cell);
 
 int cells_get_cell_ptr(struct blocks_info* const, const struct cl_desc searched_cld, const enum cl_pin_mode, struct cell** const found_cell);
 

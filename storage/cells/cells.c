@@ -5,6 +5,8 @@
 #include "blocks/blocks_pub.h"
 #include "blocks/block_types_pub.h"
 #include "cells/cell_types.h"
+#include "cells/cell_types_pub.h"
+#include "utils/mem.h"
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -45,11 +47,6 @@ int cells_get_cpy_cell(struct blocks_info* const bl_info, const struct cl_desc s
     void*           found_cell;
     struct cell*    found_cell_wrap = NULL;
 
-    *cell_cpy = malloc(sizeof(struct cell));
-    if (*cell_cpy == NULL) {
-        return 1;
-    }
-
     get_cl_ptr_res = cells_get_cell_ptr(bl_info, searched_cld, CL_PIN_READ, &found_cell_wrap);
     if (get_cl_ptr_res != 0) {
         return 2;
@@ -81,9 +78,9 @@ int cells_get_cpy_cell(struct blocks_info* const bl_info, const struct cl_desc s
  * @param cell 
  * @return int 
  */
-void cells_free_cpy_cell(struct cell** cell) {
-    free((*cell) -> ptr.common);
-    free(*cell);
+void cells_free_cpy_cell(struct cell* cell) {
+    free(cell -> ptr.common);
+    free(cell);
 }
 
 /**
@@ -110,16 +107,21 @@ int cells_get_cell_ptr(struct blocks_info* const bl_info, const struct cl_desc s
     struct block*       requested_bl = NULL;
     struct cell_common* requested_cl = NULL;
 
+    if (searched_cld.bl_d == UNDEF_BL_DESC || searched_cld.cl_d == UNDEF_CL_DESC) {
+        return 5;
+    }
+
     load_bl_res = storage_load_block(bl_info, searched_cld.bl_d, &requested_bl);
-    if (load_bl_res == 1) { // block should be already loaded
+    if (load_bl_res == 1) { // block should be already loaded but it's not
         return 5;
     }
     else if (load_bl_res != 0) {
         return 3;
     }
+
     // Calculate cell address using pointer arithmetic
     requested_cl = (struct cell_common*) blocks_get_block_contents_start(requested_bl) + searched_cld.cl_d;
-    *found_cell_wrap = malloc(sizeof(struct cell));
+    *found_cell_wrap = myAllocStruct(cell);
     if (*found_cell_wrap == NULL) {
         return 2;
     }

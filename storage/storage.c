@@ -5,6 +5,7 @@
 #include "blocks/blocks.h"
 #include "cells/cell_types.h"
 #include "cells/cell_types_pub.h"
+#include "cells/cells.h"
 #include "cells/cells_iterators.h"
 #include "cells/cells_pub.h"
 #include "storage_file.h"
@@ -12,6 +13,7 @@
 #include "utils/iterators/iterators.h"
 
 #include <assert.h>
+#include <glib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +40,7 @@ as an interface between queries and blocks & cells layers.
  */
 static int create_open_storage(const char* const filename, struct blocks_info* const bl_info) {
     struct block*   block;
-    struct cell_obj root_cell;
+    struct cell_object root_cell;
     struct cell*    root_cell_wrap;
     struct cell*    found_cell_wrap;
     struct cl_desc  inserted_cell_desc;
@@ -52,16 +54,17 @@ static int create_open_storage(const char* const filename, struct blocks_info* c
         return 3;
     }
     // Create root cell and insert it into the storage
-    root_cell = (cell_obj) { // maybe taken to function to hide `cell_types` from this layer
+    root_cell = (cell_object) { // maybe taken to function to hide `cell_types` from this layer
         .type = CELL_OBJECT,
         .attrs = cells_get_default_cld(),
-        .ancestor = cells_get_default_cld(),
+        .parent = cells_get_default_cld(),
         .children = cells_get_default_cld(),
         .next_sibling = cells_get_default_cld(),
-        .prev_sibling = cells_get_default_cld(),
-        .value = cells_get_default_cld()
+        // .prev_sibling = cells_get_default_cld(),
+        .value = cells_get_default_cld(),
+        .name = cells_get_default_cld()
     };
-    root_cell_wrap = create_cell(CELL_OBJECT, cells_get_cell_type_size(CELL_OBJECT), &root_cell);
+    root_cell_wrap = create_cell(CELL_OBJECT, 0, &root_cell);
     if (root_cell_wrap == NULL) {
         return 4;
     }
@@ -78,7 +81,7 @@ static int create_open_storage(const char* const filename, struct blocks_info* c
         return 6;
     }
     inserted_cell_desc = insert_cell(bl_info, root_cell_wrap, found_cell_wrap);
-    if (inserted_cell_desc.cl_d == UNDEF_CL_DESC) {
+    if (cells_cmp_cl_desc(inserted_cell_desc, cells_get_default_cld()) == 0) {
         return 7;
     }
     storage_set_root_cell(bl_info, inserted_cell_desc);
@@ -115,6 +118,38 @@ static int load_header_blocks(struct blocks_info* const bl_info) {
     return 0;
 }
 
+static int fill_block_meta(struct blocks_info* const bl_info) {
+    GHashTableIter header_bl_iter;
+    gpointer* cur_header_bl_desc = NULL;
+    gpointer* cur_header_block = NULL;
+    cell* cur_block_cell = NULL;
+    bl_desc header_capacity = storage_get_header_group_size(bl_info -> block_size);
+    bl_desc cur_bl_desc;
+    GQueue* cur_bl_queue = NULL;
+
+    g_hash_table_iter_init(&header_bl_iter, bl_info -> header_blocks_table);
+    while (g_hash_table_iter_next(&header_bl_iter, cur_header_bl_desc, cur_header_block) == TRUE) {
+        cur_bl_desc = (*(bl_desc*) *cur_header_bl_desc) + 1;
+        while (cur_bl_desc <= header_capacity) {
+            if (0 != storage_get_meta_info_of_block(bl_info, cur_bl_desc, &cur_block_cell)) {
+                return 1;
+            }
+            if (cur_block_cell->ptr.cl_block->stor_cl_type != CELL_UNDEF) {
+                // may skip if queue is already full
+                enum cl_type data_type = cur_block_cell->ptr.cl_block -> stor_cl_type; 
+                cur_bl_queue = g_hash_table_lookup(bl_info -> cell_insertion_candidates_table, &data_type);
+                assert(cur_bl_queue);
+                if (g_queue_get_length(cur_bl_queue) < bl_info -> insert_candidates_queue_length) {
+                    storage_try_append_insert_cand_by_bl_desc(bl_info, data_type, cur_block_cell->ptr.cl_block->free_bl_size, cur_block_cell->ptr.cl_block->rbd);
+                }
+            }
+            cells_free_cpy_cell(cur_block_cell);
+            cur_bl_desc++;
+        }
+    }
+    return 0;
+}
+
 /**
  * @brief Open exsisting storage or create and initialize a new one.
  * During this step, all header blocks from storage are being loaded into memory.
@@ -142,7 +177,7 @@ int init_storage(const char* filename, struct blocks_info** bl_info) {
     }
 
     
-    if (load_header_blocks(*bl_info) != 0) {
+    if (load_header_blocks(*bl_info) != 0 && fill_block_meta(*bl_info) != 0) {
         close_storage(bl_info);
         return 3;
     }
@@ -158,15 +193,6 @@ void close_storage(struct blocks_info** bl_info) {
     storage_destroy_blocks_info(bl_info);
 }
 
-/* 
-Executes select query to find elements (cl_desc) for insertion
-of element (or miltiple elements)
-*/
-// int insert(struct query* query, struct element* elem) {
-//     insert_cells()
-//      
-//     return 1;
-// }
 
 // int insert_cells(struct blocks_info* const bl_info, struct cell* const cell_to_insert, iterator* const found_cell_iterator) {
 //     while (found_cell_iterator -> move_next(found_cell_iterator)) {
@@ -201,64 +227,8 @@ of element (or miltiple elements)
 //     return 0;
 // }
 
-
-// static bool testCondition(void* node, struct q_condition* cond) {
-//     // TODO
-// } 
-
-// typedef struct queryExecutionStackNode {
-//     struct queryExecutionStackNode* next;
-//     struct q_condition_level* queryStep;
-//     struct iterator* it;
-// } queryExecutionStackNode;
-
-// static queryExecutionStackNode* stackPush(queryExecutionStackNode* node, struct q_condition_level* queryStep, struct iterator* it) {
-//     queryExecutionStackNode* newNode = myAllocStruct(queryExecutionStackNode);
-//     newNode->it = it;
-//     newNode->queryStep = queryStep;
-//     newNode->next = node;
-//     return newNode;
-// }
-
-// static queryExecutionStackNode* stackPop(queryExecutionStackNode* node) {
-//     struct queryExecutionStackNode* next = node->next;
-//     free(node);
-//     return next;
-// }
-
-// typedef void(*arrayItDtor)(void** arr, void* ctx);
-// struct iterator* iteratorArrayNew(void** arr, int count, arrayItDtor dtor, void* dtorCtx);
-
-// static struct iterator* newSingleItemItemIterator(void* item) {
-//     void** items = myAllocStruct(void*);
-//     items[0] = item;
-//     return iteratorArrayNew(items,  1, dtor, NULL);
-// }
-
-// struct iterator applyQuery(struct cell root, struct q_condition_level* query) {
-//     struct cell rootArr[1] = { root };
-//     queryExecutionStackNode* stack = stackPush(NULL, query, rootIt);
-    
-//     while (stack != NULL) {
-//         if (stack->it->move_next(stack->it)) {
-//             void* node = stack->it->current(stack->it);
-//             struct q_condition_level* treeOp = stack->queryStep;
-//             switch (treeOp->lvl_tree_operation) {
-//                 case T_CONDITION: {
-//                     if (testCondition(node, treeOp->list_conditions)) {
-//                         struct iterator* it = newSingleItemItemIterator(node);
-//                         stack = stackPush(stack, treeOp->next, it);
-//                     }
-//                 } break;
-//                 case T_IMM_CHILDREN:
-//                 case T_ALL_CHIlDREN:
-//                 case T_PARENT:
-//                 default: // achtung
-//             }
-//         } else {
-//             stack = stackPop(stack);
-//         }
-//     }
-
-// }
+iterator* exec_query(struct blocks_info* const bl_info, iterator* qIt) {
+    // Todo
+    return NULL;
+}
 

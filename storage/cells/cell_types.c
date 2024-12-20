@@ -1,30 +1,69 @@
 #include "cell_types.h"
 #include "blocks/block_types_pub.h"
 #include "cells/cell_types_pub.h"
+#include "utils/mem.h"
 
-struct cl_desc cells_get_default_cld(void) {
-    return (struct cl_desc) {.bl_d = UNDEF_BL_DESC, .cl_d = UNDEF_CL_DESC};
+
+cells_simple_values cells_get_simple_type_value(struct cell* cell) {
+    cells_simple_values value = {0};
+    switch (cell -> type) {
+        case CELL_INT32: {
+            value.int32 = cell -> ptr.cl_int32 -> value;
+        }; break;
+        case CELL_FLOAT32: {
+            value.float32 = cell -> ptr.cl_float32 -> value;
+        }; break;
+        case CELL_BOOL: {
+            value.boolean = cell -> ptr.cl_bool -> value;
+        }; break;
+        case CELL_STRING: {
+            value.string = myAllocArray(char, cell -> ptr.cl_string -> length + 1);
+            strncpy(value.string, cell -> ptr.cl_string -> value, cell -> ptr.cl_string -> length);
+            value.string[cell -> ptr.cl_string -> length] = '\0';
+        }; break;
+        default: break;
+    }
+    return value;
 }
 
-size_t cells_get_data_type_size(const enum cl_type ct) {
-    switch (ct) {
-        case (CELL_INT32): {
-            return sizeof(int);
-        };
-        case (CELL_FLOAT32): {
-            return sizeof(float);
-        };
-        case (CELL_BOOL): {
-            return sizeof(bool);
-        };
-        case (CELL_STRING): {
-            return 0;
-        };
-        // case (...) {}
-        default: {
+
+struct cl_desc cells_get_default_cld(void) {
+    return (struct cl_desc) { .bl_d = UNDEF_BL_DESC, .cl_d = UNDEF_CL_DESC };
+}
+
+/**
+ * @brief 
+ * 
+ * @param first 
+ * @param second 
+ * @return int -1 - first has less bl_desc or equal bl_desc and less cl_desc
+ * @return int 0 - descriptors are equal
+ * @return int 1 - first has greater bl_desc or equal bl_desc and less cl_desc
+ */
+int cells_cmp_cl_desc(const cl_desc first, const cl_desc second) {
+    if (first.bl_d < second.bl_d) {
+        return -1;
+    } else if (first.bl_d > second.bl_d) {
+        return 1;
+    } else if (first.cl_d < second.cl_d) {
+        return -1;
+    } else if (first.cl_d > second.cl_d) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int cells_cmp(const struct cell* const first, const struct cell* const second) {
+    if (first == NULL) {
+        if (second == NULL) {
             return 0;
         }
+        return -1;
+    } else if (second == NULL) {
+        return 1;
     }
+    return cells_cmp_cl_desc(first->cl_desc, second->cl_desc);
 }
 
 /**
@@ -54,7 +93,7 @@ size_t cells_get_cell_header_size(enum cl_type ct) {
             return sizeof(struct cell_meta);
         };
         case (CELL_OBJECT): {
-            return sizeof(struct cell_obj);
+            return sizeof(struct cell_object);
         };
         case (CELL_ATTR): {
             return sizeof(struct cell_attr);
@@ -62,6 +101,31 @@ size_t cells_get_cell_header_size(enum cl_type ct) {
         default: {
             return 0;
         };
+    }
+}
+
+size_t cells_get_data_type_size(const enum cl_type ct) {
+    switch (ct) {
+        case (CELL_INT32): {
+            return sizeof(int);
+        };
+        case (CELL_FLOAT32): {
+            return sizeof(float);
+        };
+        case (CELL_BOOL): {
+            return sizeof(bool);
+        };
+        case (CELL_STRING): {
+            return 0;
+        };
+        case CELL_META:
+        case CELL_BLOCK:
+        case CELL_ATTR:
+        case CELL_OBJECT:
+        // case (...) {}
+        default: {
+            return 0;
+        }
     }
 }
 
@@ -93,6 +157,8 @@ size_t cells_get_cell_size(const struct cell* const cell) {
         case (CELL_INT32):
         case (CELL_FLOAT32):
         case (CELL_BOOL):
+        case CELL_OBJECT:
+        case CELL_ATTR:
         case (CELL_BLOCK):
         case (CELL_META): {
             return cell_header_size + data_type_size;
@@ -105,6 +171,14 @@ size_t cells_get_cell_size(const struct cell* const cell) {
             return 0;
         };
     }
+}
+
+enum cl_type cells_get_cell_type(const struct cell* const cell) {
+    return cell -> type;
+}
+
+cl_desc cells_get_cell_desc(const struct cell* const cell) {
+    return cell -> cl_desc;
 }
 
 /**

@@ -2,6 +2,7 @@
 #define CELLS_ITERATORS_H
 
 #include "blocks/block_info.h"
+#include "glib.h"
 #include "utils/iterators/iterators.h"
 
 
@@ -16,44 +17,46 @@ bool root_cell_move_next(iterator* it);
 iterator* new_root_cell_iterator(struct blocks_info* const bl_info, struct cell* const root_cell);
 
 
-typedef struct array_iterator {
+// Node here is cell_obj
+
+iterator* new_single_item_iterator(struct cell* node);
+
+// base.current points to struct cell
+typedef struct children_iterator {
     iterator base;
-    size_t next_index;
-    size_t arr_elem_size;
-    size_t arr_lenght;
-    void* arr_start;
+    struct blocks_info* bl_info;
+    struct cl_desc next_cell_desc;
+} children_iterator;
 
-} array_iterator;
+iterator* new_node_imm_children_iterator(struct blocks_info* const bl_info, struct cell* node);
 
-iterator* new_array_iterator(void* arr_start, const size_t arr_len, const size_t arr_elem_size, fp_destroy_item arr_dstr);
+iterator* new_node_attr_iterator(struct blocks_info* const bl_info, struct cell* node);
 
-iterator* new_cell_type_array_iter(void);
+bool imm_children_iter_move_next(iterator* it);
 
-bool array_iter_move_next(iterator* it);
-
+bool attr_iter_move_next(iterator* it);
 
 
-//============================no need
+typedef struct all_children_iterator {
+    iterator base;
+    struct blocks_info* bl_info;
+    GQueue* iterator_stack;
+} all_children_iterator;
 
-// iterator* new_dfs_cell_iterator(...);
+iterator* new_node_all_children_iterator(struct blocks_info* const bl_info, struct cell* node);
 
-
-// mb dfs-ный итератор должен хранить инф-ю о посещённых блоках
-// и что-то ещё для продолжения поиска с места остановки
-typedef struct { // мб только делает dfs, отдельный итер для 
-    iterator self;
-    
-
-} dfs_cell_iterator;
+bool all_children_iter_move_next(iterator* it);
 
 
-/// Итератор по мета-инфе должен содержать что-то релевантное для себя
-//
+typedef struct attr_filter_name_iterator {
+    filter_iterator base;
+    struct blocks_info* bl_info;
+} attr_filter_name_iterator;
 
+// Needs to select name cells, which can not be done in testFunc
+iterator* new_attr_name_filter_iterator(iterator* base, struct blocks_info* const bl_info, char* expected_name);
 
+bool attr_name_iter_move_next(iterator* it);
 
-bool dfs_move_next(iterator* self);
-
-// bool meta_inf_move_next(iterator* self);
 
 #endif

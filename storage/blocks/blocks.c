@@ -7,7 +7,6 @@
 #include "blocks/block_types_pub.h"
 #include "cells/cell_types_pub.h"
 #include "storage_file.h"
-#include "utils/cli/block_cli.h"
 
 #include <assert.h>
 #include <glib.h>
@@ -283,7 +282,7 @@ int blocks_create_block(struct blocks_info* const bl_info, const enum bl_type bt
     bool is_truncated;
     void* loaded_block_addr = NULL;
     bl_desc new_bl_desc;
-    v_bl_desc new_bl_v_desc = UNDEF_BL_DESC;
+    // v_bl_desc new_bl_v_desc = UNDEF_BL_DESC;
     size_t file_offset_start;
     size_t file_offset_end;
     size_t block_size = storage_get_block_size(bl_info);

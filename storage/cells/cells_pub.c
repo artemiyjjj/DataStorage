@@ -5,6 +5,7 @@
 #include "cells.h"
 #include "cell_types.h"
 #include "cells/cell_types_pub.h"
+#include "utils/mem.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -29,8 +30,8 @@
  * and pointer to fully occupied cell object for other cell types. 
  * 
  * @param ct - type of the new cell
- * @param value_length 
- * @param value 
+ * @param value_length - IF value is not fixed lenght, defines it's dynamic size contents
+ * @param value - 
  * @return struct cell* - pointer to the created cell or NULL if allocation failed or `ct`
  */
 struct cell* create_cell(enum cl_type ct, const unsigned int value_length, const void* const value) {
@@ -44,12 +45,12 @@ struct cell* create_cell(enum cl_type ct, const unsigned int value_length, const
 
     assert(value != NULL);
     // assertion to remove
-    size_t cell_data_type_size = cells_get_data_type_size(ct);
-    if (cell_data_type_size > 0) {
-        assert (value_length == cell_data_type_size);
-    } else {
-        assert (value_length > cell_data_type_size); // dummy check if provided non-fixed length type value is valid
-    }
+    // size_t cell_data_type_size = cells_get_data_type_size(ct);
+    // if (cell_data_type_size > 0) {
+    //     assert (value_length == cell_data_type_size);
+    // } else {
+    //     assert (value_length > cell_data_type_size); // dummy check if provided non-fixed length type value is valid
+    // }
     
     new_cell = malloc(cell_length);
     if (new_cell == NULL) {
@@ -83,7 +84,7 @@ struct cell* create_cell(enum cl_type ct, const unsigned int value_length, const
         case CELL_META:
         case CELL_OBJECT:
         case CELL_ATTR: {
-            memcpy(&(new_cell_wrap -> ptr.cl_attribute), value, value_length);
+            memcpy(new_cell_wrap -> ptr.common, value, cell_length);
             break;
         };
         default: {
@@ -127,7 +128,7 @@ struct cell* find_cell(struct blocks_info* const bl_info, const struct cl_desc c
  * @return struct cell* - cell structure on the provided by descriptor position 
  */
 struct cell* select_cell(struct blocks_info* const bl_info, const struct cl_desc cl_desc) {
-    struct cell* found_cell = NULL;
+    struct cell* found_cell = malloc(sizeof( struct cell));
     if (cells_get_cpy_cell(bl_info, cl_desc, &found_cell) != 0) {
         return NULL;
     }
@@ -169,7 +170,7 @@ struct cl_desc insert_cell(struct blocks_info* const bl_info, const struct cell*
  * @param bl_info 
  * @param updated_cell 
  * @return int 0 - Successfully updated block and released provided cell
- * @return int -1 - Failed to update block's meta info
+ * @return int -1 - Failed to update block's meta info, provided cell is not freed
  * @return int -2 - Failed to release provided cell
  */
 struct cl_desc update_cell(struct blocks_info* const bl_info, struct cell* const updated_cell) {

@@ -35,6 +35,8 @@ int storage_pin_block(struct blocks_info* const, const struct cl_desc, const enu
 
 int storage_unpin_block(struct blocks_info* const, const struct cl_desc, const enum cl_pin_mode pin_mode);
 
+void storage_try_append_insert_cand_by_bl_desc(struct blocks_info* const bl_info, const enum cl_type data_type, const bl_free_space bl_free_space, const bl_desc rbd);
+
 void storage_try_append_insertion_candidates(struct blocks_info* const, const struct block* const insertion_candidate_bl);
 
 #endif

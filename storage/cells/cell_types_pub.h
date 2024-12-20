@@ -21,13 +21,28 @@ struct cl_desc {
     v_cl_desc cl_d;
 };
 #else
-struct cl_desc {
+typedef struct cl_desc {
     bl_desc bl_d;
     bl_offset cl_d;
-};
+} cl_desc;
 #endif
 
 struct cell;
+
+int cells_cmp_cl_desc(const cl_desc first, const cl_desc second);
+
+int cells_cmp(const struct cell* const first, const struct cell* const second);
+
+
+typedef union cells_simple_values {
+    int int32;
+    bool boolean;
+    float float32;
+    char* string;
+} cells_simple_values;
+
+cells_simple_values cells_get_simple_type_value(struct cell*);
+
 
 #define CELL_TYPES_AMOUNT 8
 
@@ -51,10 +66,15 @@ size_t cells_get_cell_header_size(enum cl_type ct);
 
 size_t cells_get_cell_type_size(const enum cl_type ct);
 
-size_t cells_get_cell_size(const struct cell* const cell);
-
 bl_offset cells_get_cell_offset_by_index(const enum cl_type ct, const size_t cl_index);
 
 enum bl_type cells_get_bl_type_by_cl_type(const enum cl_type cl_type);
+
+
+size_t cells_get_cell_size(const struct cell* const cell);
+
+enum cl_type cells_get_cell_type(const struct cell* const cell);
+
+cl_desc cells_get_cell_desc(const struct cell* const cell);
 
 #endif

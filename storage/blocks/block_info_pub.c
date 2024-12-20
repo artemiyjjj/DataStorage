@@ -4,7 +4,6 @@
 #include "block_info.h"
 #include "blocks_pub.h"
 #include "block_types_pub.h"
-#include "cells/cells_iterators.h"
 #include "cells/cells_pub.h"
 #include "cells/cell_types.h"
 #include "cells/cell_types_pub.h"
@@ -15,16 +14,21 @@
 #include <glib.h>
 #include <stdlib.h>
 
+static enum cl_type cl_types[] = {
+    CELL_UNDEF,
+    CELL_INT32,
+    CELL_FLOAT32,
+    CELL_BOOL,
+    CELL_STRING,
+    CELL_BLOCK,
+    CELL_META,
+    CELL_OBJECT,
+    CELL_ATTR,
+};
+
 struct blocks_info* storage_new_blocks_info(void) {
-    enum cl_type* ct;
-    iterator* cell_type_iter = NULL;
-    GQueue* queue_for_cl_type = NULL;
     struct blocks_info* bl_info = malloc(sizeof(struct blocks_info));
     if (bl_info == NULL) {
-        return NULL;
-    }
-    cell_type_iter = new_cell_type_array_iter();
-    if (cell_type_iter == NULL) {
         return NULL;
     }
 
@@ -36,13 +40,21 @@ struct blocks_info* storage_new_blocks_info(void) {
     bl_info -> insert_candidates_queue_length = INSERT_CAND_QUEUE_LEN;
     bl_info -> cell_insertion_candidates_table = g_hash_table_new(g_int_hash, g_int_equal);
 
-    while (cell_type_iter -> move_next(cell_type_iter)) {
-        ct = cell_type_iter -> current;
-        queue_for_cl_type = g_queue_new();
+    // while (cell_type_iter -> move_next(cell_type_iter)) {
+    //     ct = (enum cl_type)cell_type_iter -> current;
+    //     queue_for_cl_type = g_queue_new();
+    //     if (queue_for_cl_type == NULL) {
+    //         return NULL;
+    //     }
+    //     g_hash_table_insert(bl_info -> cell_insertion_candidates_table, ct, queue_for_cl_type);
+    // }
+
+    for (unsigned int i = 0; i < sizeof(cl_types)/sizeof(enum cl_type); i++) {
+        GQueue* queue_for_cl_type = g_queue_new();
         if (queue_for_cl_type == NULL) {
             return NULL;
         }
-        g_hash_table_insert(bl_info -> cell_insertion_candidates_table, ct, queue_for_cl_type);
+        g_hash_table_insert(bl_info -> cell_insertion_candidates_table, &cl_types[i], queue_for_cl_type);
     }
     return bl_info;
 }
@@ -55,7 +67,6 @@ void storage_destroy_blocks_info(struct blocks_info** const bl_info) {
     struct block*  value_block = NULL;
     enum cl_type*  key_cl_type = NULL;
     GQueue*        value_queue = NULL;
-    enum cl_type*  found_ct_arr_start = NULL;
 
     g_hash_table_iter_init(&loaded_blocks_iter, (*bl_info) -> loaded_blocks_table);
     g_hash_table_iter_init(&header_blocks_iter, (*bl_info) -> header_blocks_table);
@@ -78,9 +89,6 @@ void storage_destroy_blocks_info(struct blocks_info** const bl_info) {
     // free all insertion candidates and free full gqueries
     while (g_hash_table_iter_next(&insertion_candidates_iter, (void**) &key_cl_type, (void**) &value_queue) == TRUE) {
         g_hash_table_iter_remove(&insertion_candidates_iter);
-        if (*key_cl_type == CELL_INT32) {
-            found_ct_arr_start = key_cl_type;
-        }
         // strange bug here - for CELL_INT32 returned invalid pointer only when storage is newly created
         if (g_queue_get_length(value_queue) > 0) {
             g_queue_free_full(value_queue, free);
@@ -88,7 +96,6 @@ void storage_destroy_blocks_info(struct blocks_info** const bl_info) {
             g_queue_free(value_queue);
         }
     }
-    free(found_ct_arr_start);
     g_hash_table_destroy((*bl_info) -> cell_insertion_candidates_table);
 
     g_queue_free_full((*bl_info) -> free_blocks, free);
@@ -399,32 +406,52 @@ int storage_update_block_meta_info_by_cell_operation(struct blocks_info* const b
     return 0;
 }
 
-void storage_try_append_insertion_candidates(struct blocks_info* const bl_info, const struct block* const insertion_candidate_bl) {
-    bl_desc candidate_bl_desc = blocks_get_real_bl_desc(insertion_candidate_bl);
-    enum cl_type bl_data_type = blocks_get_block_data_type(insertion_candidate_bl);
+/**
+ * @brief Remove least recently used candidate
+ * 
+ * @param bl_info 
+ * @param candidates_queue 
+ */
+static void displace_candidate(GQueue* const candidates_queue) {
+    bl_desc* candidate_bl_desc = g_queue_pop_tail(candidates_queue);
+    free(candidate_bl_desc);
+}
+
+
+void storage_try_append_insert_cand_by_bl_desc(struct blocks_info* const bl_info, const enum cl_type data_type, const bl_free_space bl_free_space, const bl_desc rbd) {
     size_t queue_max_size = storage_get_insert_cand_size(bl_info);
     GQueue* candidates_queue = NULL;
     GList* found_candidate = NULL;
     bl_desc* bl_desc_copy = NULL;
 
-    candidates_queue = g_hash_table_lookup(bl_info -> cell_insertion_candidates_table, &bl_data_type);
-    assert(candidates_queue != NULL);
-    if (g_queue_get_length(candidates_queue) >= queue_max_size) {
-        // try to displace candidates with less "priority" (abigger mount of free cell space)
+    if (bl_free_space == 0) {
         return;
     }
-    found_candidate = g_queue_find(candidates_queue, &candidate_bl_desc);
+
+    candidates_queue = g_hash_table_lookup(bl_info -> cell_insertion_candidates_table, &data_type);
+    assert(candidates_queue != NULL);
+    if (g_queue_get_length(candidates_queue) >= queue_max_size) {
+        // try to displace candidates with less "priority" (bigger amount of free cell space)
+        displace_candidate(candidates_queue);
+    }
+    found_candidate = g_queue_find(candidates_queue, &rbd);
     if (found_candidate == NULL) {
         bl_desc_copy = myAllocStruct(bl_desc);
         if (bl_desc_copy == NULL) {
             return;
         }
-        *bl_desc_copy = candidate_bl_desc; 
+        *bl_desc_copy = rbd; 
         // Todo: redefine push and displace order, store free space amount
         g_queue_push_head(candidates_queue, bl_desc_copy);
     } else {
         // already in queue
         return;
     }
+}
 
+void storage_try_append_insertion_candidates(struct blocks_info* const bl_info, const struct block* const insertion_candidate_bl) {
+    bl_desc         candidate_bl_desc = blocks_get_real_bl_desc(insertion_candidate_bl);
+    enum cl_type    bl_data_type = blocks_get_block_data_type(insertion_candidate_bl);
+    bl_free_space   bl_free_space = blocks_get_block_state(insertion_candidate_bl).free_cells;
+    storage_try_append_insert_cand_by_bl_desc(bl_info, bl_data_type, bl_free_space, candidate_bl_desc);
 }

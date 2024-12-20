@@ -2,6 +2,7 @@
 #define ITERATORS_H
 
 #include <stdbool.h>
+#include <stdio.h>
 
 struct iterator;
 
@@ -18,6 +19,18 @@ typedef struct iterator {
 void* iterator_get_current(iterator* self);
 
 void iterator_empty_destroy(void* fake_item);
+
+
+typedef struct ptr_array_iterator {
+    iterator base;
+    size_t next_index;
+    size_t arr_lenght;
+    void** arr_start;
+} array_iterator;
+
+iterator* new_array_iterator(void** arr_start, const size_t arr_len, fp_destroy_item arr_dstr);
+
+bool array_iter_move_next(iterator* it);
 
 
 typedef bool(*fp_test_condition)(void* item, void* param);
